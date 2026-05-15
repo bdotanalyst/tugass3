@@ -84,7 +84,7 @@
 
         <!-- Hour Filter -->
         <div class="filter-section">
-          <div class="section-label">Filter Jam</div>
+          <div class="section-label">Rentang Waktu</div>
           <div class="hour-filters">
             <button
               v-for="range in hourRanges"
