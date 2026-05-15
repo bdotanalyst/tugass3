@@ -17,7 +17,7 @@
                 {{ formatTemp(row.temperature_2m) }}°
               </span>
             </td>
-            <td class="hide-mobile">{{ getTempIcon(row.temperature_2m) }} {{ getTempLabel(row.temperature_2m) }}</td>
+            <td class="hide-mobile">{{ getTempLabel(row.temperature_2m) }}</td>
           </tr>
           <tr v-if="paginatedData.length === 0">
             <td colspan="3" class="empty-row">
@@ -25,7 +25,7 @@
             </td>
           </tr>
         </tbody>
-      </table>
+       </table>
     </div>
 
     <div v-if="totalPages > 1" class="pagination">
@@ -97,14 +97,6 @@ const getTempClass = (temp) => {
   return 'temp-hot'
 }
 
-const getTempIcon = (temp) => {
-  if (temp === null) return '❓'
-  if (temp < 22) return '❄️'
-  if (temp < 26) return '🌤️'
-  if (temp < 30) return '☀️'
-  return '🔥'
-}
-
 const getTempLabel = (temp) => {
   if (temp === null) return ''
   if (temp < 22) return 'Sejuk'
@@ -135,10 +127,10 @@ const getTempLabel = (temp) => {
 .weather-table th {
   text-align: left;
   padding: 0.75rem 1rem;
-  background: var(--bg-secondary);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
   font-size: 0.65rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-tertiary);
@@ -175,23 +167,23 @@ const getTempLabel = (temp) => {
 }
 
 .temp-cool {
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.08);
+  color: #6b8c5c;
+  background: rgba(107, 140, 92, 0.1);
 }
 
 .temp-mild {
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.08);
+  color: #8baa6e;
+  background: rgba(139, 170, 110, 0.1);
 }
 
 .temp-warm {
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.08);
+  color: #c9a03d;
+  background: rgba(201, 160, 61, 0.1);
 }
 
 .temp-hot {
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.08);
+  color: #c95454;
+  background: rgba(201, 84, 84, 0.1);
 }
 
 .empty-row {
@@ -217,7 +209,7 @@ const getTempLabel = (temp) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-secondary);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
@@ -232,7 +224,7 @@ const getTempLabel = (temp) => {
 }
 
 .page-btn:disabled {
-  opacity: 0.3;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
