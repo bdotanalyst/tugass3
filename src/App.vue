@@ -1,4 +1,3 @@
-// App.vue
 <template>
   <div class="app">
     <header class="header">
@@ -30,7 +29,7 @@
       </div>
 
       <template v-else-if="stats">
-        <!-- Dashboard Header with Collapse -->
+        <!-- Dashboard dengan collapse -->
         <div class="dashboard-section">
           <div class="dashboard-header" @click="toggleDashboard">
             <div class="dashboard-title">
@@ -101,10 +100,7 @@
         </div>
 
         <!-- Weather Table -->
-        <WeatherTable 
-          :entries="filteredEntries" 
-          :per-page="12"
-        />
+        <WeatherTable :entries="filteredEntries" :per-page="12" />
       </template>
 
       <div v-else class="empty-state">
@@ -121,16 +117,17 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import WeatherTable from './WeatherTable.vue'
+import { useWeather } from './composables/useWeather.js'
 
-// State
-const weatherData = ref(null)
-const loading = ref(false)
-const error = ref(null)
+// Gunakan composable dari file yang sudah ada
+const { byDay, days, stats, loading, error, fetchWeather } = useWeather()
+
+// State lokal untuk UI
 const isDashboardCollapsed = ref(false)
 const currentDateIndex = ref(0)
 const activeHourFilter = ref(null)
 
-// Hour ranges
+// Hour ranges untuk filter
 const hourRanges = [
   { label: '00:00 - 06:00', value: 'night', start: 0, end: 6 },
   { label: '06:00 - 12:00', value: 'morning', start: 6, end: 12 },
@@ -138,14 +135,11 @@ const hourRanges = [
   { label: '18:00 - 24:00', value: 'evening', start: 18, end: 24 }
 ]
 
-// Computed
-const groupedData = computed(() => weatherData.value?.grouped || {})
-const days = computed(() => weatherData.value?.days || [])
-const stats = computed(() => weatherData.value?.stats || null)
-
+// Data untuk tanggal yang dipilih
 const currentDate = computed(() => days.value[currentDateIndex.value] || '')
-const currentEntries = computed(() => groupedData.value[currentDate.value] || [])
+const currentEntries = computed(() => byDay.value[currentDate.value] || [])
 
+// Filter berdasarkan jam
 const filteredEntries = computed(() => {
   let entries = currentEntries.value
   
@@ -198,59 +192,7 @@ const formatDayName = (dateStr) => {
   return date.toLocaleDateString('id-ID', { weekday: 'short' })
 }
 
-const fetchWeather = async () => {
-  loading.value = true
-  error.value = null
-  
-  try {
-    const res = await fetch(
-      'https://api.open-meteo.com/v1/forecast?latitude=-6.2&longitude=106.8&hourly=temperature_2m&timezone=Asia/Jakarta&forecast_days=7'
-    )
-    
-    if (!res.ok) throw new Error('Gagal mengambil data')
-    
-    const data = await res.json()
-    const hourly = data.hourly
-    const times = hourly.time
-    const temps = hourly.temperature_2m
-    
-    const grouped = {}
-    const allTemps = []
-    
-    times.forEach((time, idx) => {
-      const date = time.split('T')[0]
-      const temp = temps[idx]
-      
-      if (!grouped[date]) grouped[date] = []
-      grouped[date].push({ time, temperature_2m: temp })
-      allTemps.push(temp)
-    })
-    
-    const maxTemp = Math.max(...allTemps)
-    const minTemp = Math.min(...allTemps)
-    const avgTemp = allTemps.reduce((a, b) => a + b, 0) / allTemps.length
-    
-    weatherData.value = {
-      grouped,
-      days: Object.keys(grouped).sort(),
-      stats: {
-        max: maxTemp,
-        min: minTemp,
-        avg: avgTemp.toFixed(1),
-        total: allTemps.length
-      }
-    }
-    
-    currentDateIndex.value = 0
-    activeHourFilter.value = null
-    
-  } catch (err) {
-    error.value = err.message
-  } finally {
-    loading.value = false
-  }
-}
-
+// Reset index ketika days berubah
 watch(days, (newDays) => {
   if (newDays.length && currentDateIndex.value >= newDays.length) {
     currentDateIndex.value = 0
@@ -279,7 +221,7 @@ onMounted(fetchWeather)
   --text-tertiary: #5a5a5a;
   --accent: #3b82f6;
   --accent-dim: rgba(59, 130, 246, 0.1);
-  --success: #10b981;
+  --danger: #ef4444;
   --radius-sm: 4px;
   --radius: 6px;
   --radius-md: 8px;
@@ -680,7 +622,6 @@ body {
   background: rgba(239, 68, 68, 0.1);
 }
 
-/* Empty State */
 .empty-state {
   text-align: center;
   padding: 3rem;
