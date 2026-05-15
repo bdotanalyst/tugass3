@@ -17,7 +17,7 @@
                 {{ formatTemp(row.temperature_2m) }}°
               </span>
             </td>
-            <td class="hide-mobile">{{ getTempLabel(row.temperature_2m) }}</td>
+            <td class="hide-mobile">{{ getTempIcon(row.temperature_2m) }} {{ getTempLabel(row.temperature_2m) }}</td>
           </tr>
           <tr v-if="paginatedData.length === 0">
             <td colspan="3" class="empty-row">
@@ -25,7 +25,7 @@
             </td>
           </tr>
         </tbody>
-       </table>
+      </table>
     </div>
 
     <div v-if="totalPages > 1" class="pagination">
@@ -95,6 +95,14 @@ const getTempClass = (temp) => {
   if (temp < 26) return 'temp-mild'
   if (temp < 30) return 'temp-warm'
   return 'temp-hot'
+}
+
+const getTempIcon = (temp) => {
+  if (temp === null) return '❓'
+  if (temp < 22) return '❄️'
+  if (temp < 26) return '🌤️'
+  if (temp < 30) return '☀️'
+  return '🔥'
 }
 
 const getTempLabel = (temp) => {
