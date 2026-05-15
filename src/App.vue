@@ -116,7 +116,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import WeatherTable from './WeatherTable.vue'
+import WeatherTable from './components/WeatherTable.vue'
 import { useWeather } from './composables/useWeather.js'
 
 // Gunakan composable dari file yang sudah ada
