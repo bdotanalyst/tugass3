@@ -1,4 +1,3 @@
-// WeatherTable.vue
 <template>
   <div class="table-container">
     <div class="table-wrapper">
