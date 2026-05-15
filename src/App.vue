@@ -18,18 +18,18 @@
 
     <main class="main">
       <div v-if="error" class="error-box">
-        <span>⚠️</span> {{ error }}
+        {{ error }}
         <button @click="fetchWeather" class="retry-btn">Coba lagi</button>
       </div>
 
-      <div v-else-if="loading && !stats" class="loading-skeleton">
+      <div v-else-if="loading && !days.length" class="loading-skeleton">
         <div class="skeleton-stats">
           <div v-for="n in 4" :key="n" class="skeleton-card"></div>
         </div>
       </div>
 
-      <template v-else-if="stats">
-        <!-- Dashboard dengan collapse -->
+      <template v-else-if="days.length">
+        <!-- Dashboard dengan collapse - berdasarkan data per hari yang dipilih -->
         <div class="dashboard-section">
           <div class="dashboard-header" @click="toggleDashboard">
             <div class="dashboard-title">
@@ -38,25 +38,25 @@
               </svg>
               <h2>Ringkasan</h2>
             </div>
-            <span class="dashboard-badge">{{ stats.total }} data</span>
+            <span class="dashboard-badge">{{ filteredEntries.length }} data</span>
           </div>
           
           <div v-if="!isDashboardCollapsed" class="stats-grid">
             <div class="stat-card">
               <span class="stat-label">Maksimum</span>
-              <span class="stat-value">{{ stats.max.toFixed(1) }}<span class="stat-unit">°C</span></span>
+              <span class="stat-value">{{ dayStats.max.toFixed(1) }}<span class="stat-unit">°C</span></span>
             </div>
             <div class="stat-card">
               <span class="stat-label">Minimum</span>
-              <span class="stat-value">{{ stats.min.toFixed(1) }}<span class="stat-unit">°C</span></span>
+              <span class="stat-value">{{ dayStats.min.toFixed(1) }}<span class="stat-unit">°C</span></span>
             </div>
             <div class="stat-card">
               <span class="stat-label">Rata-rata</span>
-              <span class="stat-value">{{ stats.avg }}<span class="stat-unit">°C</span></span>
+              <span class="stat-value">{{ dayStats.avg }}<span class="stat-unit">°C</span></span>
             </div>
             <div class="stat-card">
               <span class="stat-label">Rentang</span>
-              <span class="stat-value">{{ (stats.max - stats.min).toFixed(1) }}<span class="stat-unit">°C</span></span>
+              <span class="stat-value">{{ dayStats.range.toFixed(1) }}<span class="stat-unit">°C</span></span>
             </div>
           </div>
         </div>
@@ -119,15 +119,12 @@ import { ref, computed, onMounted, watch } from 'vue'
 import WeatherTable from './components/WeatherTable.vue'
 import { useWeather } from './composables/useWeather.js'
 
-// Gunakan composable dari file yang sudah ada
 const { byDay, days, stats, loading, error, fetchWeather } = useWeather()
 
-// State lokal untuk UI
 const isDashboardCollapsed = ref(false)
 const currentDateIndex = ref(0)
 const activeHourFilter = ref(null)
 
-// Hour ranges untuk filter
 const hourRanges = [
   { label: '00:00 - 06:00', value: 'night', start: 0, end: 6 },
   { label: '06:00 - 12:00', value: 'morning', start: 6, end: 12 },
@@ -135,11 +132,9 @@ const hourRanges = [
   { label: '18:00 - 24:00', value: 'evening', start: 18, end: 24 }
 ]
 
-// Data untuk tanggal yang dipilih
 const currentDate = computed(() => days.value[currentDateIndex.value] || '')
 const currentEntries = computed(() => byDay.value[currentDate.value] || [])
 
-// Filter berdasarkan jam
 const filteredEntries = computed(() => {
   let entries = currentEntries.value
   
@@ -156,7 +151,19 @@ const filteredEntries = computed(() => {
   return entries
 })
 
-// Methods
+// Statistik berdasarkan data per hari yang dipilih (bukan semua data)
+const dayStats = computed(() => {
+  const temps = filteredEntries.value.map(e => e.temperature_2m).filter(t => t != null)
+  if (!temps.length) return { max: 0, min: 0, avg: '0', range: 0 }
+  
+  const max = Math.max(...temps)
+  const min = Math.min(...temps)
+  const avg = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1)
+  const range = max - min
+  
+  return { max, min, avg, range }
+})
+
 const toggleDashboard = () => {
   isDashboardCollapsed.value = !isDashboardCollapsed.value
 }
@@ -192,7 +199,6 @@ const formatDayName = (dateStr) => {
   return date.toLocaleDateString('id-ID', { weekday: 'short' })
 }
 
-// Reset index ketika days berubah
 watch(days, (newDays) => {
   if (newDays.length && currentDateIndex.value >= newDays.length) {
     currentDateIndex.value = 0
@@ -210,18 +216,19 @@ onMounted(fetchWeather)
 }
 
 :root {
-  --bg: #0a0a0a;
-  --bg-secondary: #111111;
-  --surface: #1a1a1a;
-  --surface-hover: #222222;
-  --border: #2a2a2a;
-  --border-light: #333333;
-  --text: #e5e5e5;
-  --text-secondary: #8a8a8a;
-  --text-tertiary: #5a5a5a;
-  --accent: #3b82f6;
-  --accent-dim: rgba(59, 130, 246, 0.1);
-  --danger: #ef4444;
+  --bg: #f5f5f0;
+  --bg-secondary: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f0f0eb;
+  --border: #e5e5e0;
+  --border-light: #efefea;
+  --text: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-tertiary: #8a8a8a;
+  --accent: #7c9a6e;
+  --accent-dim: rgba(124, 154, 110, 0.1);
+  --accent-light: #9bbd8a;
+  --danger: #c95454;
   --radius-sm: 4px;
   --radius: 6px;
   --radius-md: 8px;
@@ -246,7 +253,7 @@ body {
 /* Header */
 .header {
   border-bottom: 1px solid var(--border);
-  background: rgba(10, 10, 10, 0.8);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
@@ -274,8 +281,9 @@ body {
 
 .brand h1 {
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .brand-sub {
@@ -333,11 +341,11 @@ body {
 
 /* Error */
 .error-box {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(201, 84, 84, 0.08);
+  border: 1px solid rgba(201, 84, 84, 0.25);
   border-radius: var(--radius);
   padding: 1rem 1.25rem;
-  color: #f87171;
+  color: var(--danger);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -347,9 +355,9 @@ body {
 .retry-btn {
   padding: 0.25rem 0.75rem;
   background: transparent;
-  border: 1px solid #f87171;
+  border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
-  color: #f87171;
+  color: var(--danger);
   font-size: 0.75rem;
   cursor: pointer;
 }
@@ -376,7 +384,7 @@ body {
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.6; }
 }
 
 /* Dashboard */
@@ -408,7 +416,7 @@ body {
 
 .dashboard-title h2 {
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-tertiary);
@@ -426,7 +434,7 @@ body {
 .dashboard-badge {
   font-size: 0.65rem;
   padding: 0.125rem 0.5rem;
-  background: var(--bg-secondary);
+  background: var(--bg);
   border-radius: var(--radius-sm);
   color: var(--text-tertiary);
   font-family: var(--font-mono);
@@ -457,7 +465,7 @@ body {
 
 .stat-value {
   font-size: 1.5rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text);
 }
@@ -479,7 +487,7 @@ body {
 
 .section-label {
   font-size: 0.65rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-tertiary);
@@ -500,7 +508,7 @@ body {
 .slider-arrow {
   width: 32px;
   height: 32px;
-  background: var(--bg-secondary);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
@@ -517,7 +525,7 @@ body {
 }
 
 .slider-arrow:disabled {
-  opacity: 0.3;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -547,7 +555,7 @@ body {
 .date-chip {
   flex: 0 0 auto;
   padding: 0.5rem 1rem;
-  background: var(--bg-secondary);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
@@ -574,6 +582,7 @@ body {
   display: block;
   font-size: 0.9rem;
   font-weight: 500;
+  color: var(--text);
 }
 
 .date-name {
@@ -619,7 +628,7 @@ body {
 }
 
 .filter-chip.clear:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(201, 84, 84, 0.08);
 }
 
 .empty-state {
