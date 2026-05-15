@@ -1,253 +1,256 @@
+// WeatherTable.vue
 <template>
-  <div class="weather-table-shell">
-    <table class="weather-table">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Temperature</th>
-          <th>Status</th>
-          <th>Condition</th>
-        </tr>
-      </thead>
+  <div class="table-container">
+    <div class="table-wrapper">
+      <table class="weather-table">
+        <thead>
+          <tr>
+            <th>Jam</th>
+            <th>Suhu</th>
+            <th class="hide-mobile">Kondisi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in paginatedData" :key="row.time">
+            <td class="time-col">{{ formatHour(row.time) }}</td>
+            <td>
+              <span :class="['temp-badge', getTempClass(row.temperature_2m)]">
+                {{ formatTemp(row.temperature_2m) }}°
+              </span>
+            </td>
+            <td class="hide-mobile">{{ getTempIcon(row.temperature_2m) }} {{ getTempLabel(row.temperature_2m) }}</td>
+          </tr>
+          <tr v-if="paginatedData.length === 0">
+            <td colspan="3" class="empty-row">
+              Tidak ada data untuk filter ini
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-      <tbody>
-        <tr v-if="loading">
-          <td colspan="4" class="table-empty">
-            Loading weather data...
-          </td>
-        </tr>
-
-        <tr v-else-if="error">
-          <td colspan="4" class="table-error">
-            {{ error }}
-          </td>
-        </tr>
-
-        <tr v-else-if="!rows.length">
-          <td colspan="4" class="table-empty">
-            No weather data available.
-          </td>
-        </tr>
-
-        <tr
-          v-for="item in rows"
-          :key="item.time"
-          class="table-row"
-        >
-          <td class="time-cell">
-            <div class="time-primary">
-              {{ formatHour(item.time) }}
-            </div>
-
-            <div class="time-secondary">
-              {{ formatDate(item.time) }}
-            </div>
-          </td>
-
-          <td>
-            <div class="temp-cell">
-              {{ item.temperature_2m.toFixed(1) }}°C
-            </div>
-          </td>
-
-          <td>
-            <div
-              class="status-badge"
-              :class="statusClass(item.temperature_2m)"
-            >
-              {{ statusLabel(item.temperature_2m) }}
-            </div>
-          </td>
-
-          <td>
-            <div class="condition-bar-wrapper">
-              <div
-                class="condition-bar"
-                :style="{
-                  width: normalizeTemp(item.temperature_2m)
-                }"
-              ></div>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-if="totalPages > 1" class="pagination">
+      <button class="page-btn" @click="prevPage" :disabled="currentPage === 1">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+      <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+      <button class="page-btn" @click="nextPage" :disabled="currentPage === totalPages">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup>
-defineProps({
-  rows: {
+import { ref, computed, watch } from 'vue'
+
+const props = defineProps({
+  entries: {
     type: Array,
     default: () => []
   },
-
-  loading: {
-    type: Boolean,
-    default: false
-  },
-
-  error: {
-    type: String,
-    default: ''
+  perPage: {
+    type: Number,
+    default: 12
   }
 })
 
-function formatHour(value) {
-  return new Intl.DateTimeFormat('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(value))
+const currentPage = ref(1)
+
+watch(() => props.entries, () => {
+  currentPage.value = 1
+})
+
+const totalPages = computed(() => Math.ceil(props.entries.length / props.perPage))
+
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * props.perPage
+  return props.entries.slice(start, start + props.perPage)
+})
+
+const prevPage = () => {
+  if (currentPage.value > 1) currentPage.value--
 }
 
-function formatDate(value) {
-  return new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric',
-    month: 'short'
-  }).format(new Date(value))
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) currentPage.value++
 }
 
-function statusLabel(temp) {
-  if (temp >= 30) return 'Hot'
-  if (temp <= 24) return 'Cool'
-  return 'Normal'
+const formatHour = (isoString) => {
+  const date = new Date(isoString)
+  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-function statusClass(temp) {
-  if (temp >= 30) return 'status-hot'
-  if (temp <= 24) return 'status-cool'
-  return 'status-normal'
+const formatTemp = (temp) => {
+  if (temp === null || temp === undefined) return '—'
+  return temp.toFixed(1)
 }
 
-function normalizeTemp(temp) {
-  const percentage = Math.min(
-    100,
-    Math.max(0, (temp / 45) * 100)
-  )
+const getTempClass = (temp) => {
+  if (temp === null) return ''
+  if (temp < 22) return 'temp-cool'
+  if (temp < 26) return 'temp-mild'
+  if (temp < 30) return 'temp-warm'
+  return 'temp-hot'
+}
 
-  return `${percentage}%`
+const getTempIcon = (temp) => {
+  if (temp === null) return '❓'
+  if (temp < 22) return '❄️'
+  if (temp < 26) return '🌤️'
+  if (temp < 30) return '☀️'
+  return '🔥'
+}
+
+const getTempLabel = (temp) => {
+  if (temp === null) return ''
+  if (temp < 22) return 'Sejuk'
+  if (temp < 26) return 'Sedang'
+  if (temp < 30) return 'Hangat'
+  return 'Panas'
 }
 </script>
 
 <style scoped>
-.weather-table-shell {
+.table-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.table-wrapper {
   overflow-x: auto;
-  background: #12151d;
 }
 
 .weather-table {
   width: 100%;
-  min-width: 720px;
   border-collapse: collapse;
-}
-
-.weather-table thead {
-  background: #171b24;
+  font-size: 0.85rem;
 }
 
 .weather-table th {
-  padding: 14px 18px;
-  border-bottom: 1px solid #23262f;
   text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.65rem;
+  font-weight: 500;
   text-transform: uppercase;
-  color: #71717a;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
 }
 
 .weather-table td {
-  padding: 16px 18px;
-  border-bottom: 1px solid #20232c;
-  font-size: 14px;
-  color: #e4e4e7;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-light);
 }
 
-.table-row {
-  transition: background 0.14s ease;
+.weather-table tr:last-child td {
+  border-bottom: none;
 }
 
-.table-row:hover {
-  background: rgba(255, 255, 255, 0.025);
+.weather-table tbody tr:hover td {
+  background: var(--surface-hover);
 }
 
-.time-primary {
-  font-size: 14px;
+.time-col {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.temp-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
-.time-secondary {
-  margin-top: 3px;
-  font-size: 12px;
-  color: #71717a;
+.temp-cool {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.08);
 }
 
-.temp-cell {
-  font-size: 15px;
-  font-weight: 600;
+.temp-mild {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.08);
 }
 
-.status-badge {
-  display: inline-flex;
+.temp-warm {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.temp-hot {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.empty-row {
+  text-align: center;
+  padding: 2rem !important;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.pagination {
+  display: flex;
   align-items: center;
   justify-content: center;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid transparent;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
 }
 
-.status-hot {
-  background: rgba(245, 158, 11, 0.12);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.18);
+.page-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.status-cool {
-  background: rgba(56, 189, 248, 0.12);
-  color: #7dd3fc;
-  border-color: rgba(56, 189, 248, 0.18);
+.page-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
 }
 
-.status-normal {
-  background: rgba(113, 113, 122, 0.12);
-  color: #d4d4d8;
-  border-color: rgba(113, 113, 122, 0.18);
+.page-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
-.condition-bar-wrapper {
-  width: 100%;
-  height: 6px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: #1d212c;
+.page-info {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
-.condition-bar {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    #38bdf8,
-    #34d399,
-    #f59e0b
-  );
-}
-
-.table-empty,
-.table-error {
-  padding: 48px 20px !important;
-  text-align: center;
-  font-size: 13px;
-}
-
-.table-empty {
-  color: #71717a;
-}
-
-.table-error {
-  color: #fca5a5;
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none;
+  }
+  
+  .weather-table th,
+  .weather-table td {
+    padding: 0.625rem 0.875rem;
+  }
 }
 </style>
