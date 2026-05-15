@@ -1,6 +1,3 @@
-# Full App.vue
-
-```vue
 <template>
   <div class="app-shell">
     <header class="topbar">
@@ -571,13 +568,3 @@ const formattedDate = computed(() => {
   }
 }
 </style>
-```
-
-Perubahan utama:
-
-* Tanggal dipisah jadi horizontal date switcher.
-* Jam dipindah jadi filter dropdown.
-* Dashboard metrics bisa di-hide.
-* Table dibuat lebih compact dan operational.
-* Struktur visual lebih tenang dan mudah discan.
-* Fokus utama tetap ke data table, bukan dekorasi.
