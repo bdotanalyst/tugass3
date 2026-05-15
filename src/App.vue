@@ -1,508 +1,583 @@
-<template>
-  <div class="app">
+# Full App.vue
 
-    <!-- Header -->
-    <header class="header">
-      <div class="header-inner">
-        <div class="header-left">
-          <span class="header-dot"></span>
+```vue
+<template>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-left">
+          <div class="status-dot"></div>
+
           <div>
-            <h1 class="header-title">Weather Forecast</h1>
-            <p class="header-meta">Jakarta · Open-Meteo · temperature_2m · −6.2°, 106.8°</p>
+            <h1 class="page-title">
+              Weather Operations
+            </h1>
+
+            <p class="page-meta">
+              Jakarta · Open-Meteo · temperature_2m · −6.2°, 106.8°
+            </p>
           </div>
         </div>
-        <div class="header-actions">
+
+        <div class="topbar-actions">
           <button
-            v-if="stats"
             class="btn btn-ghost"
-            @click="dashboardVisible = !dashboardVisible"
+            @click="showDashboard = !showDashboard"
           >
-            <span class="btn-icon">{{ dashboardVisible ? '▲' : '▼' }}</span>
-            {{ dashboardVisible ? 'Hide' : 'Show' }} Dashboard
+            {{ showDashboard ? 'Hide Dashboard' : 'Show Dashboard' }}
           </button>
-          <button class="btn btn-primary" @click="fetchWeather" :disabled="loading">
-            <span :class="{ spin: loading }" class="btn-icon">↻</span>
-            {{ loading ? 'Loading…' : 'Refresh' }}
+
+          <button
+            class="btn btn-primary"
+            @click="fetchWeather"
+            :disabled="loading"
+          >
+            <span
+              class="refresh-icon"
+              :class="{ spinning: loading }"
+            >
+              ↻
+            </span>
+
+            {{ loading ? 'Refreshing...' : 'Refresh Data' }}
           </button>
         </div>
       </div>
     </header>
 
-    <main class="main">
+    <main class="content-wrapper">
+      <div
+        v-if="error"
+        class="error-banner"
+      >
+        <span>{{ error }}</span>
 
-      <!-- Error -->
-      <div v-if="error" class="alert-error">
-        <span>⚠ {{ error }}</span>
-        <button @click="fetchWeather" class="btn btn-ghost btn-sm">Retry</button>
+        <button
+          class="btn btn-ghost btn-small"
+          @click="fetchWeather"
+        >
+          Retry
+        </button>
       </div>
 
-      <!-- Loading skeleton -->
-      <div v-else-if="loading && !stats" class="skeleton-row">
-        <div v-for="n in 4" :key="n" class="skeleton-card"></div>
-      </div>
+      <section
+        v-if="showDashboard && dailyStats"
+        class="metrics-grid"
+      >
+        <div class="metric-card">
+          <span class="metric-label">
+            Selected Date
+          </span>
 
-      <template v-else-if="stats">
+          <span class="metric-value metric-date">
+            {{ formattedDate }}
+          </span>
+        </div>
 
-        <!-- Collapsible Dashboard -->
-        <Transition name="dashboard">
-          <section v-show="dashboardVisible" class="dashboard">
-            <div class="stat-grid">
-              <div class="stat-card">
-                <span class="stat-label">Max Temp</span>
-                <span class="stat-value">{{ stats.max.toFixed(1) }}<span class="stat-unit">°C</span></span>
-                <span class="stat-bar" :style="{ width: statBarWidth(stats.max) }" style="background: #f87171"></span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Min Temp</span>
-                <span class="stat-value">{{ stats.min.toFixed(1) }}<span class="stat-unit">°C</span></span>
-                <span class="stat-bar" :style="{ width: statBarWidth(stats.min) }" style="background: #93c5fd"></span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Average</span>
-                <span class="stat-value">{{ stats.avg }}<span class="stat-unit">°C</span></span>
-                <span class="stat-bar" :style="{ width: statBarWidth(parseFloat(stats.avg)) }" style="background: #6ee7b7"></span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Data Points</span>
-                <span class="stat-value">{{ stats.total }}<span class="stat-unit"> hrs</span></span>
-                <span class="stat-bar" style="width: 100%; background: var(--border)"></span>
-              </div>
-            </div>
-          </section>
-        </Transition>
+        <div class="metric-card">
+          <span class="metric-label">
+            Average
+          </span>
 
-        <!-- Filters -->
-        <section class="filters-row">
+          <span class="metric-value">
+            {{ dailyStats.avg }}°C
+          </span>
+
+          <span class="metric-bar metric-bar-neutral"></span>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">
+            Minimum
+          </span>
+
+          <span class="metric-value">
+            {{ dailyStats.min }}°C
+          </span>
+
+          <span class="metric-bar metric-bar-cold"></span>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">
+            Maximum
+          </span>
+
+          <span class="metric-value">
+            {{ dailyStats.max }}°C
+          </span>
+
+          <span class="metric-bar metric-bar-hot"></span>
+        </div>
+      </section>
+
+      <section class="control-panel">
+        <div class="date-slider-wrapper">
+          <div class="date-slider">
+            <button
+              v-for="day in days"
+              :key="day"
+              class="date-chip"
+              :class="{
+                active: selectedDay === day
+              }"
+              @click="selectedDay = day"
+            >
+              <span class="date-chip-day">
+                {{ new Date(day).toLocaleDateString('id-ID', {
+                  weekday: 'short'
+                }) }}
+              </span>
+
+              <span class="date-chip-date">
+                {{ new Date(day).toLocaleDateString('id-ID', {
+                  day: 'numeric',
+                  month: 'short'
+                }) }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="filter-toolbar">
           <div class="filter-group">
-            <label class="filter-label">Date</label>
-            <select class="filter-select" v-model="filterDate">
-              <option value="">All dates</option>
-              <option v-for="d in days" :key="d" :value="d">{{ d }}</option>
+            <label class="filter-label">
+              Filter Hour
+            </label>
+
+            <select
+              v-model="selectedHour"
+              class="filter-select"
+            >
+              <option value="all">
+                All Hours
+              </option>
+
+              <option
+                v-for="hour in 24"
+                :key="hour"
+                :value="hour - 1"
+              >
+                {{ String(hour - 1).padStart(2, '0') }}:00
+              </option>
             </select>
           </div>
-          <div class="filter-group">
-            <label class="filter-label">Time</label>
-            <select class="filter-select" v-model="filterHour">
-              <option value="">All hours</option>
-              <option v-for="h in availableHours" :key="h" :value="h">{{ h }}:00</option>
-            </select>
+
+          <div class="table-meta">
+            {{ currentEntries.length }} rows
           </div>
-          <button
-            v-if="filterDate || filterHour"
-            class="btn btn-ghost btn-sm clear-btn"
-            @click="clearFilters"
-          >
-            × Clear
-          </button>
-          <span class="filter-result-count">{{ filteredEntries.length }} rows</span>
-        </section>
+        </div>
+      </section>
 
-        <!-- Table -->
-        <section class="table-section">
-          <WeatherTable :entries="filteredEntries" :per-page="16" />
-        </section>
-
-      </template>
-
-      <div v-else class="empty-state">
-        <span>Loading data from API…</span>
-      </div>
-
+      <section class="table-wrapper">
+        <WeatherTable
+          :rows="currentEntries"
+          :loading="loading"
+          :error="error"
+        />
+      </section>
     </main>
-
-    <footer class="footer">
-      Data source: <a href="https://open-meteo.com" target="_blank" rel="noopener">open-meteo.com</a>
-    </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import { useWeather } from './composables/useWeather.js'
-import WeatherTable from './components/WeatherTable.vue'
+import { computed, onMounted, ref } from 'vue'
+import WeatherTable from './WeatherTable.vue'
+import { useWeather } from './useWeather'
 
-const { entries, byDay, days, stats, loading, error, fetchWeather } = useWeather()
+const {
+  byDay,
+  days,
+  loading,
+  error,
+  fetchWeather
+} = useWeather()
 
-// Dashboard visibility
-const dashboardVisible = ref(true)
+const selectedDay = ref('')
+const selectedHour = ref('all')
+const showDashboard = ref(true)
 
-// Filters
-const filterDate = ref('')
-const filterHour = ref('')
+onMounted(async () => {
+  await fetchWeather()
 
-// Auto-select first day when data loads, but don't force — use as filter default
-watch(days, (newDays) => {
-  if (newDays.length && !filterDate.value) {
-    filterDate.value = newDays[0]
+  if (days.value.length) {
+    selectedDay.value = days.value[0]
   }
 })
 
-const availableHours = computed(() => {
-  const hours = new Set()
-  for (const e of entries.value) {
-    hours.add(e.time.slice(11, 13))
-  }
-  return [...hours].sort()
-})
+const currentEntries = computed(() => {
+  const items = byDay.value[selectedDay.value] || []
 
-const filteredEntries = computed(() => {
-  return entries.value.filter(e => {
-    const matchDate = !filterDate.value || e.time.startsWith(filterDate.value)
-    const matchHour = !filterHour.value || e.time.slice(11, 13) === filterHour.value
-    return matchDate && matchHour
+  if (selectedHour.value === 'all') {
+    return items
+  }
+
+  return items.filter(entry => {
+    const hour = new Date(entry.time).getHours()
+
+    return hour === Number(selectedHour.value)
   })
 })
 
-function clearFilters() {
-  filterDate.value = ''
-  filterHour.value = ''
-}
+const dailyStats = computed(() => {
+  const temps = currentEntries.value.map(item => item.temperature_2m)
 
-function statBarWidth(val) {
-  // Normalize to 0–100 range assuming 0–45°C
-  const pct = Math.min(100, Math.max(0, (val / 45) * 100))
-  return pct + '%'
-}
+  if (!temps.length) {
+    return null
+  }
 
-onMounted(fetchWeather)
+  return {
+    min: Math.min(...temps).toFixed(1),
+    max: Math.max(...temps).toFixed(1),
+    avg: (
+      temps.reduce((a, b) => a + b, 0) / temps.length
+    ).toFixed(1)
+  }
+})
+
+const formattedDate = computed(() => {
+  if (!selectedDay.value) {
+    return '-'
+  }
+
+  return new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  }).format(new Date(selectedDay.value))
+})
 </script>
 
-<style>
-/* ── Global reset & tokens ──────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:             #0f1117;
-  --surface:        #14171f;
-  --surface-2:      #1a1e28;
-  --hover:          #1e2230;
-  --border:         #252a38;
-  --border-subtle:  #1d2130;
-  --text:           #e2e6f0;
-  --text-secondary: #9ba3b8;
-  --text-muted:     #5c6478;
-  --accent:         #4f8ef7;
-  --accent-dim:     rgba(79,142,247,0.08);
-  --radius:         6px;
-  --font-mono:      'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
-  --font-sans:      'DM Sans', 'Geist', system-ui, sans-serif;
-}
-
-html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
-
-button { font-family: inherit; }
-select { font-family: inherit; }
-</style>
-
 <style scoped>
-.app {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+:global(*) {
+  box-sizing: border-box;
 }
 
-/* ── Header ──────────────────────────────────── */
-.header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+:global(body) {
+  margin: 0;
+  background: #0f1115;
+  color: #f4f4f5;
+  font-family: Inter, sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: #0f1115;
+}
+
+.topbar {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 40;
+  backdrop-filter: blur(10px);
+  background: rgba(15, 17, 21, 0.88);
+  border-bottom: 1px solid #23262f;
 }
 
-.header-inner {
-  max-width: 1100px;
+.topbar-inner {
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0.75rem 1.5rem;
+  padding: 18px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 16px;
 }
 
-.header-left {
+.topbar-left {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
-.header-dot {
+.status-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-  box-shadow: 0 0 6px var(--accent);
+  border-radius: 999px;
+  background: #60a5fa;
+  box-shadow: 0 0 12px rgba(96, 165, 250, 0.7);
 }
 
-h1.header-title {
-  font-size: 0.95rem;
+.page-title {
+  margin: 0;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
-.header-meta {
-  font-size: 0.68rem;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  margin-top: 1px;
+.page-meta {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #71717a;
 }
 
-.header-actions {
+.topbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
 }
 
-/* ── Buttons ─────────────────────────────────── */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.78rem;
-  font-family: var(--font-mono);
-  padding: 0.42rem 0.9rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  transition: all 0.12s;
-  white-space: nowrap;
-  font-weight: 500;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid #2c313c;
   background: transparent;
-  color: var(--text-secondary);
+  color: #d4d4d8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.16s ease;
 }
 
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.btn-ghost { background: transparent; }
-.btn-ghost:hover:not(:disabled) { border-color: var(--text-secondary); color: var(--text); }
+.btn:hover {
+  border-color: #3f4654;
+  background: #181b22;
+}
 
 .btn-primary {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-dim);
-}
-.btn-primary:hover:not(:disabled) {
-  background: rgba(79,142,247,0.14);
+  background: #181f2d;
+  border-color: #2d3f63;
+  color: #93c5fd;
 }
 
-.btn-sm { padding: 0.28rem 0.65rem; font-size: 0.72rem; }
+.btn-primary:hover {
+  background: #1d2534;
+}
 
-.btn-icon { font-size: 0.85em; line-height: 1; }
-.spin { display: inline-block; animation: spin 0.7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.btn-small {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
 
-/* ── Main ────────────────────────────────────── */
-.main {
-  flex: 1;
-  max-width: 1100px;
+.refresh-icon {
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.content-wrapper {
+  max-width: 1280px;
   margin: 0 auto;
-  width: 100%;
-  padding: 1.25rem 1.5rem 2rem;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 18px;
 }
 
-/* ── Dashboard ───────────────────────────────── */
-.dashboard {
-  overflow: hidden;
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
 }
 
-.stat-grid {
+.metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.6rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
 }
 
-@media (max-width: 640px) {
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.85rem 1rem 0.7rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.metric-card {
   position: relative;
   overflow: hidden;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid #23262f;
+  background: #151821;
 }
 
-.stat-label {
-  font-size: 0.65rem;
-  font-family: var(--font-mono);
+.metric-label {
+  display: block;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted);
+  color: #71717a;
 }
 
-.stat-value {
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: -0.03em;
-  line-height: 1;
-  font-family: var(--font-mono);
-  margin-top: 0.1rem;
-}
-
-.stat-unit {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-weight: 400;
-  letter-spacing: 0;
-}
-
-.stat-bar {
+.metric-value {
   display: block;
+  margin-top: 10px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.metric-date {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.metric-bar {
+  display: block;
+  width: 100%;
   height: 2px;
-  border-radius: 2px;
-  margin-top: 0.5rem;
-  opacity: 0.5;
-  transition: width 0.6s ease;
+  margin-top: 18px;
+  border-radius: 999px;
 }
 
-/* Dashboard transition */
-.dashboard-enter-active,
-.dashboard-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.25s ease;
-  max-height: 200px;
-}
-.dashboard-enter-from,
-.dashboard-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-  max-height: 0;
+.metric-bar-hot {
+  background: #f59e0b;
 }
 
-/* ── Filters ─────────────────────────────────── */
-.filters-row {
+.metric-bar-cold {
+  background: #38bdf8;
+}
+
+.metric-bar-neutral {
+  background: #34d399;
+}
+
+.control-panel {
+  border: 1px solid #23262f;
+  background: #151821;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.date-slider-wrapper {
+  border-bottom: 1px solid #23262f;
+  overflow-x: auto;
+}
+
+.date-slider {
+  display: flex;
+  gap: 10px;
+  padding: 14px;
+  min-width: max-content;
+}
+
+.date-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 110px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #262b36;
+  background: #11141b;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: 0.16s ease;
+}
+
+.date-chip:hover {
+  border-color: #3b4250;
+  color: #fafafa;
+}
+
+.date-chip.active {
+  background: #f4f4f5;
+  color: #111111;
+  border-color: #f4f4f5;
+}
+
+.date-chip-day {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.date-chip-date {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.filter-toolbar {
   display: flex;
   align-items: flex-end;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 6px;
 }
 
 .filter-label {
-  font-size: 0.62rem;
-  font-family: var(--font-mono);
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted);
+  color: #71717a;
 }
 
 .filter-select {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-family: var(--font-mono);
-  padding: 0.38rem 0.65rem;
-  border-radius: 4px;
-  cursor: pointer;
+  min-width: 180px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #2b313d;
+  background: #11141b;
+  color: #fafafa;
   outline: none;
-  transition: border-color 0.12s;
-  min-width: 130px;
-}
-.filter-select:focus { border-color: var(--accent); color: var(--text); }
-
-.clear-btn {
-  align-self: flex-end;
-  border-color: transparent;
-  color: var(--text-muted);
-}
-.clear-btn:hover { color: var(--text-secondary) !important; border-color: var(--border) !important; }
-
-.filter-result-count {
-  margin-left: auto;
-  font-size: 0.7rem;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  align-self: flex-end;
-  padding-bottom: 0.38rem;
 }
 
-/* ── Table section ───────────────────────────── */
-.table-section {
-  flex: 1;
+.filter-select:focus {
+  border-color: #52525b;
 }
 
-/* ── Alert / Error ───────────────────────────── */
-.alert-error {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid rgba(248,113,113,0.25);
-  background: rgba(248,113,113,0.05);
-  border-radius: var(--radius);
-  font-size: 0.82rem;
-  color: #f87171;
-  font-family: var(--font-mono);
+.table-meta {
+  font-size: 12px;
+  color: #71717a;
 }
 
-/* ── Skeleton ────────────────────────────────── */
-.skeleton-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.6rem;
-}
-.skeleton-card {
-  height: 80px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  animation: pulse 1.4s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+.table-wrapper {
+  border-radius: 16px;
+  border: 1px solid #23262f;
+  overflow: hidden;
 }
 
-/* ── Empty ───────────────────────────────────── */
-.empty-state {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 4rem;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+@media (max-width: 900px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-/* ── Footer ──────────────────────────────────── */
-.footer {
-  text-align: center;
-  padding: 0.75rem 1.5rem;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  border-top: 1px solid var(--border);
+@media (max-width: 640px) {
+  .topbar-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
-.footer a {
-  color: var(--accent);
-  text-decoration: none;
-}
-.footer a:hover { text-decoration: underline; }
 </style>
+```
+
+Perubahan utama:
+
+* Tanggal dipisah jadi horizontal date switcher.
+* Jam dipindah jadi filter dropdown.
+* Dashboard metrics bisa di-hide.
+* Table dibuat lebih compact dan operational.
+* Struktur visual lebih tenang dan mudah discan.
+* Fokus utama tetap ke data table, bukan dekorasi.
