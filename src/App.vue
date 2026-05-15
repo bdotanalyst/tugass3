@@ -1,570 +1,733 @@
+// App.vue
 <template>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="topbar-inner">
-        <div class="topbar-left">
-          <div class="status-dot"></div>
-
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <div class="brand">
+          <span class="brand-icon">⛅</span>
           <div>
-            <h1 class="page-title">
-              Weather Operations
-            </h1>
-
-            <p class="page-meta">
-              Jakarta · Open-Meteo · temperature_2m · −6.2°, 106.8°
-            </p>
+            <h1>Prakiraan Cuaca</h1>
+            <p class="brand-sub">Jakarta · Open-Meteo</p>
           </div>
         </div>
-
-        <div class="topbar-actions">
-          <button
-            class="btn btn-ghost"
-            @click="showDashboard = !showDashboard"
-          >
-            {{ showDashboard ? 'Hide Dashboard' : 'Show Dashboard' }}
-          </button>
-
-          <button
-            class="btn btn-primary"
-            @click="fetchWeather"
-            :disabled="loading"
-          >
-            <span
-              class="refresh-icon"
-              :class="{ spinning: loading }"
-            >
-              ↻
-            </span>
-
-            {{ loading ? 'Refreshing...' : 'Refresh Data' }}
-          </button>
-        </div>
+        <button class="refresh-btn" @click="fetchWeather" :disabled="loading">
+          <span :class="{ spin: loading }">↻</span>
+          {{ loading ? 'Memuat...' : 'Refresh' }}
+        </button>
       </div>
     </header>
 
-    <main class="content-wrapper">
-      <div
-        v-if="error"
-        class="error-banner"
-      >
-        <span>{{ error }}</span>
-
-        <button
-          class="btn btn-ghost btn-small"
-          @click="fetchWeather"
-        >
-          Retry
-        </button>
+    <main class="main">
+      <div v-if="error" class="error-box">
+        <span>⚠️</span> {{ error }}
+        <button @click="fetchWeather" class="retry-btn">Coba lagi</button>
       </div>
 
-      <section
-        v-if="showDashboard && dailyStats"
-        class="metrics-grid"
-      >
-        <div class="metric-card">
-          <span class="metric-label">
-            Selected Date
-          </span>
+      <div v-else-if="loading && !stats" class="loading-skeleton">
+        <div class="skeleton-stats">
+          <div v-for="n in 4" :key="n" class="skeleton-card"></div>
+        </div>
+      </div>
 
-          <span class="metric-value metric-date">
-            {{ formattedDate }}
-          </span>
+      <template v-else-if="stats">
+        <!-- Dashboard Header with Collapse -->
+        <div class="dashboard-section">
+          <div class="dashboard-header" @click="toggleDashboard">
+            <div class="dashboard-title">
+              <svg class="collapse-icon" :class="{ rotated: isDashboardCollapsed }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+              <h2>Ringkasan</h2>
+            </div>
+            <span class="dashboard-badge">{{ stats.total }} data</span>
+          </div>
+          
+          <div v-if="!isDashboardCollapsed" class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-label">Maksimum</span>
+              <span class="stat-value">{{ stats.max.toFixed(1) }}<span class="stat-unit">°C</span></span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Minimum</span>
+              <span class="stat-value">{{ stats.min.toFixed(1) }}<span class="stat-unit">°C</span></span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Rata-rata</span>
+              <span class="stat-value">{{ stats.avg }}<span class="stat-unit">°C</span></span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Rentang</span>
+              <span class="stat-value">{{ (stats.max - stats.min).toFixed(1) }}<span class="stat-unit">°C</span></span>
+            </div>
+          </div>
         </div>
 
-        <div class="metric-card">
-          <span class="metric-label">
-            Average
-          </span>
-
-          <span class="metric-value">
-            {{ dailyStats.avg }}°C
-          </span>
-
-          <span class="metric-bar metric-bar-neutral"></span>
-        </div>
-
-        <div class="metric-card">
-          <span class="metric-label">
-            Minimum
-          </span>
-
-          <span class="metric-value">
-            {{ dailyStats.min }}°C
-          </span>
-
-          <span class="metric-bar metric-bar-cold"></span>
-        </div>
-
-        <div class="metric-card">
-          <span class="metric-label">
-            Maximum
-          </span>
-
-          <span class="metric-value">
-            {{ dailyStats.max }}°C
-          </span>
-
-          <span class="metric-bar metric-bar-hot"></span>
-        </div>
-      </section>
-
-      <section class="control-panel">
-        <div class="date-slider-wrapper">
+        <!-- Date Slider -->
+        <div class="slider-section">
+          <div class="section-label">Pilih Tanggal</div>
           <div class="date-slider">
-            <button
-              v-for="day in days"
-              :key="day"
-              class="date-chip"
-              :class="{
-                active: selectedDay === day
-              }"
-              @click="selectedDay = day"
-            >
-              <span class="date-chip-day">
-                {{ new Date(day).toLocaleDateString('id-ID', {
-                  weekday: 'short'
-                }) }}
-              </span>
-
-              <span class="date-chip-date">
-                {{ new Date(day).toLocaleDateString('id-ID', {
-                  day: 'numeric',
-                  month: 'short'
-                }) }}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div class="filter-toolbar">
-          <div class="filter-group">
-            <label class="filter-label">
-              Filter Hour
-            </label>
-
-            <select
-              v-model="selectedHour"
-              class="filter-select"
-            >
-              <option value="all">
-                All Hours
-              </option>
-
-              <option
-                v-for="hour in 24"
-                :key="hour"
-                :value="hour - 1"
+            <button class="slider-arrow" @click="prevDate" :disabled="currentDateIndex === 0">‹</button>
+            <div class="slider-track">
+              <button
+                v-for="(date, idx) in days"
+                :key="date"
+                class="date-chip"
+                :class="{ active: idx === currentDateIndex }"
+                @click="selectDate(idx)"
               >
-                {{ String(hour - 1).padStart(2, '0') }}:00
-              </option>
-            </select>
-          </div>
-
-          <div class="table-meta">
-            {{ currentEntries.length }} rows
+                <span class="date-num">{{ formatDayNum(date) }}</span>
+                <span class="date-name">{{ formatDayName(date) }}</span>
+              </button>
+            </div>
+            <button class="slider-arrow" @click="nextDate" :disabled="currentDateIndex === days.length - 1">›</button>
           </div>
         </div>
-      </section>
 
-      <section class="table-wrapper">
-        <WeatherTable
-          :rows="currentEntries"
-          :loading="loading"
-          :error="error"
+        <!-- Hour Filter -->
+        <div class="filter-section">
+          <div class="section-label">Filter Jam</div>
+          <div class="hour-filters">
+            <button
+              v-for="range in hourRanges"
+              :key="range.value"
+              class="filter-chip"
+              :class="{ active: activeHourFilter === range.value }"
+              @click="setHourFilter(range.value)"
+            >
+              {{ range.label }}
+            </button>
+            <button v-if="activeHourFilter" class="filter-chip clear" @click="clearHourFilter">Hapus</button>
+          </div>
+        </div>
+
+        <!-- Weather Table -->
+        <WeatherTable 
+          :entries="filteredEntries" 
+          :per-page="12"
         />
-      </section>
+      </template>
+
+      <div v-else class="empty-state">
+        <p>Memuat data cuaca...</p>
+      </div>
     </main>
+
+    <footer class="footer">
+      Data dari <a href="https://open-meteo.com" target="_blank">open-meteo.com</a> · Jakarta (-6.2°, 106.8°)
+    </footer>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import WeatherTable from './WeatherTable.vue'
-import { useWeather } from './useWeather'
 
-const {
-  byDay,
-  days,
-  loading,
-  error,
-  fetchWeather
-} = useWeather()
+// State
+const weatherData = ref(null)
+const loading = ref(false)
+const error = ref(null)
+const isDashboardCollapsed = ref(false)
+const currentDateIndex = ref(0)
+const activeHourFilter = ref(null)
 
-const selectedDay = ref('')
-const selectedHour = ref('all')
-const showDashboard = ref(true)
+// Hour ranges
+const hourRanges = [
+  { label: '00:00 - 06:00', value: 'night', start: 0, end: 6 },
+  { label: '06:00 - 12:00', value: 'morning', start: 6, end: 12 },
+  { label: '12:00 - 18:00', value: 'afternoon', start: 12, end: 18 },
+  { label: '18:00 - 24:00', value: 'evening', start: 18, end: 24 }
+]
 
-onMounted(async () => {
-  await fetchWeather()
+// Computed
+const groupedData = computed(() => weatherData.value?.grouped || {})
+const days = computed(() => weatherData.value?.days || [])
+const stats = computed(() => weatherData.value?.stats || null)
 
-  if (days.value.length) {
-    selectedDay.value = days.value[0]
+const currentDate = computed(() => days.value[currentDateIndex.value] || '')
+const currentEntries = computed(() => groupedData.value[currentDate.value] || [])
+
+const filteredEntries = computed(() => {
+  let entries = currentEntries.value
+  
+  if (activeHourFilter.value) {
+    const range = hourRanges.find(r => r.value === activeHourFilter.value)
+    if (range) {
+      entries = entries.filter(entry => {
+        const hour = new Date(entry.time).getHours()
+        return hour >= range.start && hour < range.end
+      })
+    }
+  }
+  
+  return entries
+})
+
+// Methods
+const toggleDashboard = () => {
+  isDashboardCollapsed.value = !isDashboardCollapsed.value
+}
+
+const prevDate = () => {
+  if (currentDateIndex.value > 0) currentDateIndex.value--
+}
+
+const nextDate = () => {
+  if (currentDateIndex.value < days.value.length - 1) currentDateIndex.value++
+}
+
+const selectDate = (index) => {
+  currentDateIndex.value = index
+  activeHourFilter.value = null
+}
+
+const setHourFilter = (value) => {
+  activeHourFilter.value = activeHourFilter.value === value ? null : value
+}
+
+const clearHourFilter = () => {
+  activeHourFilter.value = null
+}
+
+const formatDayNum = (dateStr) => {
+  const date = new Date(dateStr)
+  return date.getDate().toString()
+}
+
+const formatDayName = (dateStr) => {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', { weekday: 'short' })
+}
+
+const fetchWeather = async () => {
+  loading.value = true
+  error.value = null
+  
+  try {
+    const res = await fetch(
+      'https://api.open-meteo.com/v1/forecast?latitude=-6.2&longitude=106.8&hourly=temperature_2m&timezone=Asia/Jakarta&forecast_days=7'
+    )
+    
+    if (!res.ok) throw new Error('Gagal mengambil data')
+    
+    const data = await res.json()
+    const hourly = data.hourly
+    const times = hourly.time
+    const temps = hourly.temperature_2m
+    
+    const grouped = {}
+    const allTemps = []
+    
+    times.forEach((time, idx) => {
+      const date = time.split('T')[0]
+      const temp = temps[idx]
+      
+      if (!grouped[date]) grouped[date] = []
+      grouped[date].push({ time, temperature_2m: temp })
+      allTemps.push(temp)
+    })
+    
+    const maxTemp = Math.max(...allTemps)
+    const minTemp = Math.min(...allTemps)
+    const avgTemp = allTemps.reduce((a, b) => a + b, 0) / allTemps.length
+    
+    weatherData.value = {
+      grouped,
+      days: Object.keys(grouped).sort(),
+      stats: {
+        max: maxTemp,
+        min: minTemp,
+        avg: avgTemp.toFixed(1),
+        total: allTemps.length
+      }
+    }
+    
+    currentDateIndex.value = 0
+    activeHourFilter.value = null
+    
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(days, (newDays) => {
+  if (newDays.length && currentDateIndex.value >= newDays.length) {
+    currentDateIndex.value = 0
   }
 })
 
-const currentEntries = computed(() => {
-  const items = byDay.value[selectedDay.value] || []
-
-  if (selectedHour.value === 'all') {
-    return items
-  }
-
-  return items.filter(entry => {
-    const hour = new Date(entry.time).getHours()
-
-    return hour === Number(selectedHour.value)
-  })
-})
-
-const dailyStats = computed(() => {
-  const temps = currentEntries.value.map(item => item.temperature_2m)
-
-  if (!temps.length) {
-    return null
-  }
-
-  return {
-    min: Math.min(...temps).toFixed(1),
-    max: Math.max(...temps).toFixed(1),
-    avg: (
-      temps.reduce((a, b) => a + b, 0) / temps.length
-    ).toFixed(1)
-  }
-})
-
-const formattedDate = computed(() => {
-  if (!selectedDay.value) {
-    return '-'
-  }
-
-  return new Intl.DateTimeFormat('id-ID', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long'
-  }).format(new Date(selectedDay.value))
-})
+onMounted(fetchWeather)
 </script>
 
-<style scoped>
-:global(*) {
+<style>
+* {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
-:global(body) {
-  margin: 0;
-  background: #0f1115;
-  color: #f4f4f5;
-  font-family: Inter, sans-serif;
+:root {
+  --bg: #0a0a0a;
+  --bg-secondary: #111111;
+  --surface: #1a1a1a;
+  --surface-hover: #222222;
+  --border: #2a2a2a;
+  --border-light: #333333;
+  --text: #e5e5e5;
+  --text-secondary: #8a8a8a;
+  --text-tertiary: #5a5a5a;
+  --accent: #3b82f6;
+  --accent-dim: rgba(59, 130, 246, 0.1);
+  --success: #10b981;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-md: 8px;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-.app-shell {
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
   min-height: 100vh;
-  background: #0f1115;
+  display: flex;
+  flex-direction: column;
 }
 
-.topbar {
+/* Header */
+.header {
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 10, 10, 0.8);
+  backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
-  z-index: 40;
-  backdrop-filter: blur(10px);
-  background: rgba(15, 17, 21, 0.88);
-  border-bottom: 1px solid #23262f;
+  z-index: 10;
 }
 
-.topbar-inner {
+.header-inner {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 18px 24px;
+  padding: 0.75rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
 }
 
-.topbar-left {
+.brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #60a5fa;
-  box-shadow: 0 0 12px rgba(96, 165, 250, 0.7);
+.brand-icon {
+  font-size: 1.5rem;
 }
 
-.page-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.page-meta {
-  margin-top: 3px;
-  font-size: 12px;
-  color: #71717a;
-}
-
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.btn {
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 8px;
-  border: 1px solid #2c313c;
-  background: transparent;
-  color: #d4d4d8;
-  font-size: 13px;
+.brand h1 {
+  font-size: 0.9rem;
   font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.brand-sub {
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
   cursor: pointer;
-  transition: 0.16s ease;
+  transition: all 0.15s;
 }
 
-.btn:hover {
-  border-color: #3f4654;
-  background: #181b22;
+.refresh-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
 }
 
-.btn-primary {
-  background: #181f2d;
-  border-color: #2d3f63;
-  color: #93c5fd;
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.btn-primary:hover {
-  background: #1d2534;
-}
-
-.btn-small {
-  height: 30px;
-  padding: 0 12px;
-  font-size: 12px;
-}
-
-.refresh-icon {
+.spin {
   display: inline-block;
-  margin-right: 6px;
-}
-
-.spinning {
   animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
-.content-wrapper {
+/* Main */
+.main {
+  flex: 1;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 24px;
+  width: 100%;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 1.5rem;
 }
 
-.error-banner {
+/* Error */
+.error-box {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  color: #f87171;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.retry-btn {
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  border: 1px solid #f87171;
+  border-radius: var(--radius-sm);
+  color: #f87171;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+/* Loading */
+.loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.skeleton-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.skeleton-card {
+  height: 80px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Dashboard */
+.dashboard-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.dashboard-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-radius: 10px;
-  border: 1px solid rgba(248, 113, 113, 0.25);
-  background: rgba(248, 113, 113, 0.08);
-  color: #fca5a5;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
 }
 
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+.dashboard-header:hover {
+  background: var(--surface-hover);
 }
 
-.metric-card {
-  position: relative;
-  overflow: hidden;
-  padding: 18px;
-  border-radius: 14px;
-  border: 1px solid #23262f;
-  background: #151821;
+.dashboard-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.metric-label {
-  display: block;
-  font-size: 11px;
+.dashboard-title h2 {
+  font-size: 0.7rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #71717a;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
 }
 
-.metric-value {
+.collapse-icon {
+  transition: transform 0.2s;
+  color: var(--text-tertiary);
+}
+
+.collapse-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.dashboard-badge {
+  font-size: 0.65rem;
+  padding: 0.125rem 0.5rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border-top: 1px solid var(--border);
+}
+
+.stat-card {
+  background: var(--surface);
+  padding: 1rem;
+}
+
+.stat-label {
   display: block;
-  margin-top: 10px;
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.04em;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 0.5rem;
+  font-family: var(--font-mono);
 }
 
-.metric-date {
-  font-size: 15px;
-  line-height: 1.5;
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
 }
 
-.metric-bar {
-  display: block;
-  width: 100%;
-  height: 2px;
-  margin-top: 18px;
-  border-radius: 999px;
+.stat-unit {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-left: 0.125rem;
 }
 
-.metric-bar-hot {
-  background: #f59e0b;
+/* Sections */
+.slider-section,
+.filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.metric-bar-cold {
-  background: #38bdf8;
+.section-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
 }
 
-.metric-bar-neutral {
-  background: #34d399;
-}
-
-.control-panel {
-  border: 1px solid #23262f;
-  background: #151821;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.date-slider-wrapper {
-  border-bottom: 1px solid #23262f;
-  overflow-x: auto;
-}
-
+/* Date Slider */
 .date-slider {
   display: flex;
-  gap: 10px;
-  padding: 14px;
-  min-width: max-content;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+}
+
+.slider-arrow {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.slider-arrow:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.slider-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.slider-track {
+  flex: 1;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 0.125rem 0;
+}
+
+.slider-track::-webkit-scrollbar {
+  height: 3px;
+}
+
+.slider-track::-webkit-scrollbar-track {
+  background: var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.slider-track::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary);
+  border-radius: var(--radius-sm);
 }
 
 .date-chip {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  min-width: 110px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid #262b36;
-  background: #11141b;
-  color: #a1a1aa;
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   cursor: pointer;
-  transition: 0.16s ease;
+  transition: all 0.15s;
+  text-align: center;
+  min-width: 70px;
 }
 
 .date-chip:hover {
-  border-color: #3b4250;
-  color: #fafafa;
+  border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 .date-chip.active {
-  background: #f4f4f5;
-  color: #111111;
-  border-color: #f4f4f5;
+  border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
-.date-chip-day {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.date-chip.active .date-num {
+  color: var(--accent);
 }
 
-.date-chip-date {
-  font-size: 14px;
-  font-weight: 600;
+.date-num {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
-.filter-toolbar {
+.date-name {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* Hour Filters */
+.hour-filters {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.filter-chip {
+  padding: 0.375rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.filter-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #71717a;
+.filter-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-.filter-select {
-  min-width: 180px;
-  height: 38px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid #2b313d;
-  background: #11141b;
-  color: #fafafa;
-  outline: none;
+.filter-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
 }
 
-.filter-select:focus {
-  border-color: #52525b;
+.filter-chip.clear {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
-.table-meta {
-  font-size: 12px;
-  color: #71717a;
+.filter-chip.clear:hover {
+  background: rgba(239, 68, 68, 0.1);
 }
 
-.table-wrapper {
-  border-radius: 16px;
-  border: 1px solid #23262f;
-  overflow: hidden;
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
 }
 
-@media (max-width: 900px) {
-  .metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  border-top: 1px solid var(--border);
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: 1rem;
   }
-}
-
-@media (max-width: 640px) {
-  .topbar-inner {
-    flex-direction: column;
-    align-items: flex-start;
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
-
-  .filter-toolbar {
-    flex-direction: column;
-    align-items: stretch;
+  
+  .stat-value {
+    font-size: 1.25rem;
   }
-
-  .filter-select {
-    width: 100%;
+  
+  .date-chip {
+    min-width: 55px;
+    padding: 0.375rem 0.75rem;
   }
-
-  .metrics-grid {
-    grid-template-columns: 1fr;
+  
+  .date-num {
+    font-size: 0.8rem;
   }
 }
 </style>
