@@ -6,7 +6,7 @@
           <tr>
             <th>Jam</th>
             <th>Suhu</th>
-            <th class="hide-mobile">Kondisi</th>
+            <th>Kondisi</th>
           </tr>
         </thead>
         <tbody>
@@ -17,7 +17,7 @@
                 {{ formatTemp(row.temperature_2m) }}°
               </span>
             </td>
-            <td class="hide-mobile">{{ getTempIcon(row.temperature_2m) }} {{ getTempLabel(row.temperature_2m) }}</td>
+            <td>{{ getTempIcon(row.temperature_2m) }} {{ getTempLabel(row.temperature_2m) }}</td>
           </tr>
           <tr v-if="paginatedData.length === 0">
             <td colspan="3" class="empty-row">
@@ -242,14 +242,20 @@ const getTempLabel = (temp) => {
   color: var(--text-secondary);
 }
 
+/* HP tetap tampilkan semua kolom - tanpa hide-mobile */
 @media (max-width: 768px) {
-  .hide-mobile {
-    display: none;
-  }
-  
   .weather-table th,
   .weather-table td {
-    padding: 0.625rem 0.875rem;
+    padding: 0.625rem 0.5rem;
+  }
+  
+  .weather-table {
+    font-size: 0.75rem;
+  }
+  
+  .temp-badge {
+    font-size: 0.7rem;
+    padding: 0.125rem 0.375rem;
   }
 }
 </style>
